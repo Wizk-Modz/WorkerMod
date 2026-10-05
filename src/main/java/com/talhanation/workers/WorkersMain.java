@@ -1,5 +1,6 @@
 package com.talhanation.workers;
 
+import com.talhanation.workers.config.WorkersConfig;
 import net.fabricmc.api.ModInitializer;
 import net.minecraft.resources.Identifier;
 import org.slf4j.Logger;
@@ -12,6 +13,7 @@ public class WorkersMain implements ModInitializer {
 	// Khởi tạo mod: đăng ký config, entity, item và network
 	@Override
 	public void onInitialize() {
+		WorkersConfig.load();
 		LOGGER.info("Villager Workers loading");
 	}
 
