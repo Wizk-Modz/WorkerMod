@@ -1,6 +1,8 @@
 package com.talhanation.workers;
 
 import com.talhanation.workers.config.WorkersConfig;
+import com.talhanation.workers.init.ModEntityTypes;
+import com.talhanation.workers.init.ModItems;
 import net.fabricmc.api.ModInitializer;
 import net.minecraft.resources.Identifier;
 import org.slf4j.Logger;
@@ -14,6 +16,8 @@ public class WorkersMain implements ModInitializer {
 	@Override
 	public void onInitialize() {
 		WorkersConfig.load();
+		ModEntityTypes.register();
+		ModItems.register();
 		LOGGER.info("Villager Workers loading");
 	}
 
