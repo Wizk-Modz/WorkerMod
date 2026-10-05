@@ -21,10 +21,9 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
 
-import javax.annotation.Nullable;
+import org.jetbrains.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Predicate;
 
@@ -33,8 +32,8 @@ public abstract class AbstractWorkerEntity extends PathfinderMob {
 	public static final int INVENTORY_START = 6;
 	public static final int FOLLOW_STATE_WORK = 6;
 
-	public static final EntityDataAccessor<Optional<UUID>> OWNER_UUID =
-			SynchedEntityData.defineId(AbstractWorkerEntity.class, EntityDataSerializers.OPTIONAL_UUID);
+	public static final EntityDataAccessor<String> OWNER_UUID =
+			SynchedEntityData.defineId(AbstractWorkerEntity.class, EntityDataSerializers.STRING);
 	public static final EntityDataAccessor<String> OWNER_NAME =
 			SynchedEntityData.defineId(AbstractWorkerEntity.class, EntityDataSerializers.STRING);
 	public static final EntityDataAccessor<Integer> FOLLOW_STATE =
@@ -63,7 +62,7 @@ public abstract class AbstractWorkerEntity extends PathfinderMob {
 	@Override
 	protected void defineSynchedData(SynchedEntityData.Builder builder) {
 		super.defineSynchedData(builder);
-		builder.define(OWNER_UUID, Optional.empty());
+		builder.define(OWNER_UUID, "");
 		builder.define(OWNER_NAME, "");
 		builder.define(FOLLOW_STATE, 0);
 		builder.define(MORALE, 100.0f);
@@ -98,7 +97,13 @@ public abstract class AbstractWorkerEntity extends PathfinderMob {
 
 	@Nullable
 	public UUID getOwnerUUID() {
-		return this.entityData.get(OWNER_UUID).orElse(null);
+		String value = this.entityData.get(OWNER_UUID);
+		if (value.isEmpty()) return null;
+		try {
+			return UUID.fromString(value);
+		} catch (IllegalArgumentException e) {
+			return null;
+		}
 	}
 
 	public String getOwnerName() {
@@ -106,7 +111,7 @@ public abstract class AbstractWorkerEntity extends PathfinderMob {
 	}
 
 	public void setOwnerUUID(@Nullable UUID uuid) {
-		this.entityData.set(OWNER_UUID, Optional.ofNullable(uuid));
+		this.entityData.set(OWNER_UUID, uuid == null ? "" : uuid.toString());
 	}
 
 	public void setOwnerName(String name) {
@@ -118,7 +123,7 @@ public abstract class AbstractWorkerEntity extends PathfinderMob {
 	public Player getOwner() {
 		UUID uuid = getOwnerUUID();
 		if (uuid == null) return null;
-		return level().getPlayerByUUID(uuid);
+		return level().getPlayerInAnyDimension(uuid);
 	}
 
 	public void setOwner(Player player) {
@@ -150,8 +155,10 @@ public abstract class AbstractWorkerEntity extends PathfinderMob {
 		return this.inventory;
 	}
 
+	// Worker cần ngủ khi trời tối (dùng đồng hồ overworld thay isDay cũ)
 	public boolean needsToSleep() {
-		return !level().isDay();
+		long time = level().getOverworldClockTime() % 24000L;
+		return time >= 13000L && time < 23000L;
 	}
 
 	// Worker chỉ làm việc khi có chủ và không ở trạng thái bận khác
@@ -279,9 +286,11 @@ public abstract class AbstractWorkerEntity extends PathfinderMob {
 		}
 	}
 
+	// Worker giữ lại thức ăn có giá trị dinh dưỡng cao
 	public boolean wantsToKeep(ItemStack itemStack) {
-		return itemStack.isEdible() && itemStack.getFoodProperties(this) != null
-				&& itemStack.getFoodProperties(this).nutrition() > 4;
+		net.minecraft.world.food.FoodProperties food =
+				itemStack.get(net.minecraft.core.component.DataComponents.FOOD);
+		return food != null && food.nutrition() > 4;
 	}
 
 	// Worker nhặt item nếu muốn giữ hoặc item nằm trong danh sách cần
@@ -296,7 +305,7 @@ public abstract class AbstractWorkerEntity extends PathfinderMob {
 
 	// Nhặt item từ mặt đất vào kho, cập nhật số item đã farm
 	@Override
-	protected void pickUpItem(ItemEntity itemEntity) {
+	protected void pickUpItem(net.minecraft.server.level.ServerLevel serverLevel, ItemEntity itemEntity) {
 		ItemStack itemstack = itemEntity.getItem();
 		if (!wantsToPickUp(itemstack)) return;
 		if (!canAddItem(itemstack)) return;
@@ -349,7 +358,7 @@ public abstract class AbstractWorkerEntity extends PathfinderMob {
 
 	// Giới hạn thông báo cho chủ tối đa một lần mỗi ngày
 	public boolean canNotifyOwner() {
-		long day = level().getDayTime() / 24000L;
+		long day = level().getOverworldClockTime() / 24000L;
 		if (day != lastNotifyDay) return true;
 		return notifyGateOpen;
 	}
@@ -360,7 +369,7 @@ public abstract class AbstractWorkerEntity extends PathfinderMob {
 		Player owner = getOwner();
 		if (owner != null) {
 			owner.sendSystemMessage(message);
-			this.lastNotifyDay = level().getDayTime() / 24000L;
+			this.lastNotifyDay = level().getOverworldClockTime() / 24000L;
 			this.notifyGateOpen = false;
 		}
 	}
@@ -423,15 +432,16 @@ public abstract class AbstractWorkerEntity extends PathfinderMob {
 	@Override
 	public void aiStep() {
 		super.aiStep();
-		if (level().isClientSide()) return;
+		if (!(level() instanceof net.minecraft.server.level.ServerLevel serverLevel)) return;
 
 		if (canPickUpLoot() && isAlive() && !dead) {
-			List<ItemEntity> nearbyItems = level().getEntitiesOfClass(
-					ItemEntity.class, getBoundingBox().inflate(5.5D));
+			List<ItemEntity> nearbyItems = level().getEntities(
+					net.minecraft.world.level.entity.EntityTypeTest.forClass(ItemEntity.class),
+					getBoundingBox().inflate(5.5D), e -> true);
 			for (ItemEntity itemEntity : nearbyItems) {
 				if (!itemEntity.isRemoved() && !itemEntity.getItem().isEmpty()
 						&& !itemEntity.hasPickUpDelay() && wantsToPickUp(itemEntity.getItem())) {
-					pickUpItem(itemEntity);
+					pickUpItem(serverLevel, itemEntity);
 				}
 			}
 		}

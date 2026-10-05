@@ -16,14 +16,14 @@ public class ModEntityTypes {
 	public static final EntityType<FarmerEntity> FARMER = register("farmer",
 			EntityType.Builder.of(FarmerEntity::new, MobCategory.CREATURE)
 					.sized(0.6F, 1.95F)
-					.setTrackingRange(32)
-					.setShouldReceiveVelocityUpdates(true));
+					.clientTrackingRange(32)
+					.updateInterval(3));
 
 	public static final EntityType<LumberjackEntity> LUMBERJACK = register("lumberjack",
 			EntityType.Builder.of(LumberjackEntity::new, MobCategory.CREATURE)
 					.sized(0.6F, 1.95F)
-					.setTrackingRange(32)
-					.setShouldReceiveVelocityUpdates(true));
+					.clientTrackingRange(32)
+					.updateInterval(3));
 
 	// Đăng ký một entity type vào registry
 	private static <T extends Entity> EntityType<T> register(String name, EntityType.Builder<T> builder) {
