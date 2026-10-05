@@ -1,0 +1,21 @@
+{
+	"schemaVersion": 1,
+	"id": "workers",
+	"version": "${version}",
+	"name": "Villager Workers",
+	"description": "Adds hireable Villager Workers into Minecraft.",
+	"authors": ["talhanation"],
+	"license": "All rights reserved",
+	"icon": "logo.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": ["com.talhanation.workers.WorkersMain"],
+		"client": ["com.talhanation.workers.client.WorkersClient"]
+	},
+	"depends": {
+		"fabricloader": ">=0.19.5",
+		"minecraft": "~26.2",
+		"java": ">=25",
+		"fabric-api": "*"
+	}
+}
